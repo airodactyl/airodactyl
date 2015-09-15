@@ -1,4 +1,4 @@
-DIRS = muttator vimperator
+DIRS = vimperator
 TARGETS = clean help info xpi
 .SILENT:
 
