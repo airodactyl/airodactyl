@@ -1102,15 +1102,6 @@ const Events = Module("events", {
             return;
 
         let key = events.toString(event);
-        if (modes.passAllKeys) {
-            // Respect "unignored" keys
-            if (modes._passKeysExceptions == null || modes._passKeysExceptions.indexOf(key) < 0) {
-                return;
-            } else {
-                event.stopPropagation();
-                return;
-            }
-        }
 
         // Many sites perform (useful) actions on keydown.
         // Let's keep the most common ones unless we have a mapping for that
@@ -1119,10 +1110,26 @@ const Events = Module("events", {
                 modes.passNextKey = false;
                 return;
             }
+            else if (modes.passAllKeys) {
+                modes.passAllKeys = false;
+                modes.passNextKey = true;
+                event.stopPropagation();
+                return;
+            }
 
             this.onEscape(); // We do our Escape handling here, as the on "onKeyPress" may not always work if websites override the keydown event
             event.stopPropagation();
             return;
+        }
+        
+        if (modes.passAllKeys) {
+            // Respect "unignored" keys
+            if (modes._passKeysExceptions == null || modes._passKeysExceptions.indexOf(key) < 0) {
+                return;
+            } else {
+                event.stopPropagation();
+                return;
+            }
         }
 
         if (liberator.mode == modes.INSERT || liberator.mode == modes.TEXTAREA) {
