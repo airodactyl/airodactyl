@@ -708,7 +708,24 @@ const Bookmarks = Module("bookmarks", {
             let engines = bookmarks.getSearchEngines();
 
             context.title = ["Search Keywords"];
-            context.completions = keywords.concat(engines);
+
+            // flip the order so engine keywords are given priority when searching for the defsearch engine
+            context.completions = engines.concat(keywords);
+
+            let defsearch = ["", "Don't perform searches by default"];
+
+            for (let [k, v] in Iterator(context.completions)) {
+                if (v[0] == options["defsearch"]) {
+                    defsearch = context.completions.splice(k, 1)[0];
+                    break;
+                }
+            }
+
+            context.completions.sort(function (a, b) String.localeCompare(a[0], b[0]));
+            
+            context.completions.unshift(defsearch);
+            context.compare = CompletionContext.Sort.unsorted;
+            
             context.keys = { text: 0, description: 1, icon: function(item) item[2] || DEFAULT_FAVICON };
 
             if (!space || noSuggest)
