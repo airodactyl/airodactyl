@@ -773,7 +773,7 @@ const Events = Module("events", {
      *  The global escape key handler. This is called in ALL modes.
      */
     onEscape: function () {
-        if (modes.passNextKey) // We allow <Esc> in passAllKeys
+        if (modes.passNextKey || modes.processNextKey) // We allow <Esc> in passNextKey
             return;
 
         // always clear the commandline. Even if we are in
@@ -916,12 +916,20 @@ const Events = Module("events", {
             // special mode handling
             if (modes.isMenuShown) { // menus have their own command handlers
                 stop = true;
+            } else if (modes.processNextKey) { // handle process next key mode
+                modes.processNextKey = false;
+                stop = false;
             } else if (modes.passNextKey) { // handle Escape-one-key mode ('i')
                 modes.passNextKey = false;
                 stop = true;
             } else if (modes.passAllKeys) { // handle Escape-all-keys mode (Shift-Esc)
-                if (key == "<S-Esc>" || key == "<Insert>") // FIXME: Don't hardcode!
+                if (key == "<Esc>") // FIXME: Don't hardcode!
                     modes.passAllKeys = false;
+                else if (key == "<C-v>") {
+                    modes.processNextKey = true;
+                    stop = true;
+                    throw killEvent();
+                }
 
                 // If we manage to get into command line mode while IGNOREKEYS, let the command line handle keys
                 if (liberator.mode == modes.COMMAND_LINE)
@@ -1098,11 +1106,45 @@ const Events = Module("events", {
 
     onKeyUpOrDown: function (event) {
         // Always let the event be handled by the webpage/Firefox for certain modes
-        if (modes.isMenuShown) 
+        if (modes.isMenuShown)
             return;
 
         let key = events.toString(event);
-        if (modes.passAllKeys) {
+
+        // Many sites perform (useful) actions on keydown.
+        // Let's keep the most common ones unless we have a mapping for that
+        if (event.type == "keydown" && this.isEscapeKey(key)) {
+            if (modes.processNextKey) {
+                event.stopPropagation();
+                modes.processNextKey = false;
+                return;
+            } else if (modes.passNextKey) {
+                modes.passNextKey = false;
+                return;
+            } else if (modes.passAllKeys) {
+                modes.passAllKeys = false;
+                modes.passNextKey = true;
+                event.stopPropagation();
+                return;
+            }
+
+            this.onEscape(); // We do our Escape handling here, as the on "onKeyPress" may not always work if websites override the keydown event
+            event.stopPropagation();
+            return;
+        }
+
+        if (modes.passNextKey)
+            return;
+
+        if (modes.passAllKeys && !modes.processNextKey) {
+            // probably shouldn't hardcode this... but no better way other than implementing passthrough as proper modes
+            if (event.type == "keydown" && key == "<C-v>") {
+                modes.processNextKey = true;
+                window.console.log(modes);
+                event.stopPropagation();
+                return;
+            }
+
             // Respect "unignored" keys
             if (modes._passKeysExceptions == null || modes._passKeysExceptions.indexOf(key) < 0) {
                 return;
@@ -1110,19 +1152,6 @@ const Events = Module("events", {
                 event.stopPropagation();
                 return;
             }
-        }
-
-        // Many sites perform (useful) actions on keydown.
-        // Let's keep the most common ones unless we have a mapping for that
-        if (event.type == "keydown" && this.isEscapeKey(key)) {
-            if (modes.passNextKey) {
-                modes.passNextKey = false;
-                return;
-            }
-
-            this.onEscape(); // We do our Escape handling here, as the on "onKeyPress" may not always work if websites override the keydown event
-            event.stopPropagation();
-            return;
         }
 
         if (liberator.mode == modes.INSERT || liberator.mode == modes.TEXTAREA) {
@@ -1247,12 +1276,22 @@ const Events = Module("events", {
             function () { document.commandDispatcher.rewindFocus(); });
 
         mappings.add(modes.all,
-            ["<S-Esc>", "<Insert>"], "Temporarily ignore all " + config.name + " key bindings",
-            function () { modes.passAllKeys = !modes.passAllKeys; });
+            ["<C-z>"], "Temporarily ignore all " + config.name + " key bindings",
+            function () {
+                if (!modes.passAllKeys)
+                    modes.passAllKeys = true;
+            });
 
-        mappings.add([modes.NORMAL],
-            ["i"], "Ignore next key and send it directly to the webpage",
-            function () { modes.passNextKey = true; });
+        mappings.add(modes.all,
+            ["<C-v>"], "Ignore next key and send it directly to the webpage",
+            function () {
+                if (modes.processNextKey)
+                    return;
+                else if (modes.passAllKeys)
+                    modes.processNextKey = true;
+                else if (!modes.passNextKey)
+                    modes.passNextKey = true;
+            });
 
         mappings.add(modes.all,
             ["<Nop>"], "Do nothing",
