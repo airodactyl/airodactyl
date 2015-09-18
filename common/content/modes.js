@@ -15,6 +15,7 @@ const Modes = Module("modes", {
         this._lastShown = null;
 
         this._passNextKey = false;
+        this._processNextKey = false;
         this._passAllKeys = false;
         this._passKeysExceptions = null; // Which keys are still allowed in ignore mode. ONLY set when an :ignorekeys LocationChange triggered it
         this._isRecording = false;
@@ -51,13 +52,20 @@ const Modes = Module("modes", {
     },
 
     _getModeMessage: function () {
-        if (this._passNextKey) {
-            return "IGNORE";
+        if (this._processNextKey) {
+            if (this._main == modes.NORMAL) {
+                return "NORMAL (next)";
+            } else if (!this._main in this._modeMap || typeof this._modeMap[this._main].display !== "function") {
+                return "PROCESS (next)";
+            }
+            return this._modeMap[this._main].display() + " (next)";
+        } else if (this._passNextKey) {
+            return "PASSTHROUGH (next)";
         } else if (this._passAllKeys) {
             if (!this._passKeysExceptions || this._passKeysExceptions.length == 0)
-                return "IGNORE ALL KEYS (Press <S-Esc> or <Insert> to exit)";
+                return "PASSTHROUGH";
             else
-                return "IGNORE MOST KEYS (All except " + this._passKeysExceptions + ")";
+                return "PASSTHROUGH (All except " + this._passKeysExceptions + ")";
         }
 
         // when recording or replaying a macro
@@ -215,6 +223,9 @@ const Modes = Module("modes", {
         if (modes.passNextKey)
             return true;
 
+        if (modes.processNextKey)
+            return false;
+
         if (modes.passAllKeys) { // handle Escape-all-keys mode (Shift-Esc)
             // Respect "unignored" keys
             if (modes._passKeysExceptions == null || modes._passKeysExceptions.indexOf(key) < 0)
@@ -248,6 +259,9 @@ const Modes = Module("modes", {
 
     get passNextKey() this._passNextKey,
     set passNextKey(value) { this._passNextKey = value; this.show(); },
+
+    get processNextKey() this._processNextKey,
+    set processNextKey(value) { this._processNextKey = value; this.show(); },
 
     get passAllKeys() this._passAllKeys,
     set passAllKeys(value) {
