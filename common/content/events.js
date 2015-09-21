@@ -923,8 +923,12 @@ const Events = Module("events", {
                 modes.passNextKey = false;
                 stop = true;
             } else if (modes.passAllKeys) { // handle Escape-all-keys mode (Shift-Esc)
-                if (key == "<Esc>") // FIXME: Don't hardcode!
-                    modes.passAllKeys = false;
+                if (key == "<Esc>") { // FIXME: Don't hardcode!
+                    if (modes.justSet)
+                        modes.justSet = false;
+                    else
+                        modes.passAllKeys = false;
+                }
                 else if (key == "<C-v>") {
                     modes.processNextKey = true;
                     stop = true;
@@ -1117,6 +1121,7 @@ const Events = Module("events", {
             if (modes.processNextKey) {
                 event.stopPropagation();
                 modes.processNextKey = false;
+                modes.justSet = true;
                 return;
             } else if (modes.passNextKey) {
                 modes.passNextKey = false;

@@ -256,6 +256,7 @@ const Modes = Module("modes", {
     },
 
     isMenuShown: false, // when a popup menu is active
+    justSet: false, // when we just changed a mode between keydown and keypress
 
     get passNextKey() this._passNextKey,
     set passNextKey(value) { this._passNextKey = value; this.show(); },
