@@ -632,6 +632,14 @@ const Events = Module("events", {
     isEscapeKey: function (key) key == "<Esc>" || key == "<C-[>",
 
     /**
+     * Whether <b>key</b> is a key code is a modifier key
+     *
+     * @param {string} key The key code to test.
+     * @returns {boolean}
+     */
+    isModifierKey: function (key) key == "Control" || key == "Shift" || key == "Alt",
+
+    /**
      * Waits for the current buffer to successfully finish loading. Returns
      * true for a successful page load otherwise false.
      *
@@ -920,11 +928,14 @@ const Events = Module("events", {
                 modes.processNextKey = false;
                 stop = false;
             } else if (modes.passNextKey) { // handle Escape-one-key mode ('i')
-                modes.passNextKey = false;
                 stop = true;
             } else if (modes.passAllKeys) { // handle Escape-all-keys mode (Shift-Esc)
-                if (key == "<Esc>") // FIXME: Don't hardcode!
-                    modes.passAllKeys = false;
+                if (key == "<Esc>") { // FIXME: Don't hardcode!
+                    if (modes.justSet)
+                        modes.justSet = false;
+                    else
+                        modes.passAllKeys = false;
+                }
                 else if (key == "<C-v>") {
                     modes.processNextKey = true;
                     stop = true;
@@ -940,6 +951,9 @@ const Events = Module("events", {
                 // Respect "unignored" keys
                 else if (modes._passKeysExceptions == null || modes._passKeysExceptions.indexOf(key) < 0)
                     stop = true;
+            } else if (modes.justSet) { // this was an Esc keypress that quits out of Passthrough mode
+                modes.justSet = false;
+                stop = true;
             }
 
             if (stop) {
@@ -1117,13 +1131,14 @@ const Events = Module("events", {
             if (modes.processNextKey) {
                 event.stopPropagation();
                 modes.processNextKey = false;
+                modes.justSet = true;
                 return;
             } else if (modes.passNextKey) {
                 modes.passNextKey = false;
                 return;
             } else if (modes.passAllKeys) {
                 modes.passAllKeys = false;
-                modes.passNextKey = true;
+                modes.justSet = true;
                 event.stopPropagation();
                 return;
             }
@@ -1133,17 +1148,17 @@ const Events = Module("events", {
             return;
         }
 
-        if (modes.passNextKey)
+        if (modes.passNextKey) {
+            if (event.type == "keyup" && !this.isModifierKey(event.key)) {
+                if (modes.justSet)
+                    modes.justSet = false;
+                else
+                    modes.passNextKey = false;
+            }
             return;
+        }
 
         if (modes.passAllKeys && !modes.processNextKey) {
-            // probably shouldn't hardcode this... but no better way other than implementing passthrough as proper modes
-            if (event.type == "keydown" && key == "<C-v>") {
-                modes.processNextKey = true;
-                event.stopPropagation();
-                return;
-            }
-
             // Respect "unignored" keys
             if (modes._passKeysExceptions == null || modes._passKeysExceptions.indexOf(key) < 0) {
                 return;
@@ -1288,8 +1303,10 @@ const Events = Module("events", {
                     return;
                 else if (modes.passAllKeys)
                     modes.processNextKey = true;
-                else if (!modes.passNextKey)
+                else if (!modes.passNextKey) {
                     modes.passNextKey = true;
+                    modes.justSet = true;
+                }
             });
 
         mappings.add(modes.all,
