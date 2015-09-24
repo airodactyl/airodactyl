@@ -930,13 +930,7 @@ const Events = Module("events", {
             } else if (modes.passNextKey) { // handle Escape-one-key mode ('i')
                 stop = true;
             } else if (modes.passAllKeys) { // handle Escape-all-keys mode (Shift-Esc)
-                if (key == "<Esc>") { // FIXME: Don't hardcode!
-                    if (modes.justSet)
-                        modes.justSet = false;
-                    else
-                        modes.passAllKeys = false;
-                }
-                else if (key == "<C-v>") {
+                if (key == "<C-v>") {
                     modes.processNextKey = true;
                     stop = true;
                     throw killEvent();
@@ -1131,15 +1125,13 @@ const Events = Module("events", {
             if (modes.processNextKey) {
                 event.stopPropagation();
                 modes.processNextKey = false;
-                modes.justSet = true;
+                modes.passAllKeys = false;
                 return;
             } else if (modes.passNextKey) {
                 modes.passNextKey = false;
+                modes.justSet = true;
                 return;
             } else if (modes.passAllKeys) {
-                modes.passAllKeys = false;
-                modes.justSet = true;
-                event.stopPropagation();
                 return;
             }
 
